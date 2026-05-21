@@ -1,5 +1,5 @@
 {
-  "name": "piiranha",
+  "name": "@doist/piiranha",
   "version": "3.5.8",
   "description": "Remove personally identifiable information from text.",
   "main": "lib/index.js",
@@ -28,6 +28,9 @@
     }
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "lodash": "^4.17.21"
   },

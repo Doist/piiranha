@@ -1,10 +1,10 @@
 # piiranha
 
-[![NPM Package](https://badge.fury.io/js/piiranha.png)](https://www.npmjs.com/package/piiranha)
+[![NPM Package](https://badge.fury.io/js/%40doist%2Fpiiranha.png)](https://www.npmjs.com/package/@doist/piiranha)
 
 Remove personally identifiable information from text.
 
-> This package is published on npm as [piiranha](https://www.npmjs.com/package/piiranha) and is maintained as a fork of the original [solvvy/redact-pii](https://github.com/solvvy/redact-pii) package.
+> This package is published on npm as [@doist/piiranha](https://www.npmjs.com/package/@doist/piiranha) and is maintained as a fork of the original [solvvy/redact-pii](https://github.com/solvvy/redact-pii) package.
 
 ### Prerequisites
 
@@ -15,7 +15,7 @@ The project is tested in CI on Node.js 18.x and 20.x.
 ### Simple example (synchronous API)
 
 ```
-npm install piiranha
+npm install @doist/piiranha
 ```
 
 ```js
