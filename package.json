@@ -1,6 +1,6 @@
 {
-  "name": "@doist/piiranha",
-  "version": "3.5.8",
+  "name": "@todoist/piiranha",
+  "version": "3.5.9",
   "description": "Remove personally identifiable information from text.",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -9,8 +9,8 @@
     "setup-hooks": "./scripts/setup-hooks.sh",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run verify_all && npm run build",
-    "release": "npm whoami && git push --follow-tags && npm publish",
-    "release:patch": "npm whoami && npm version patch && git push --follow-tags && npm publish",
+    "release": "git push --follow-tags",
+    "release:patch": "npm version patch && npm run release",
     "verify_all": "npm run typecheck && npm test && npm run test_prettier",
     "test": "jest",
     "test_prettier": "prettier './+(src|test)/**/*.+(js|ts|tsx)' --list-different",
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Doist/piiranha.git"
+    "url": "git+https://github.com/todoist/piiranha.git"
   },
   "author": "Christian Theilemann <christian@solvvy.com>",
   "maintainers": [
