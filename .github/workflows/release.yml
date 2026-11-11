@@ -4,6 +4,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: piiranha-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -19,25 +23,99 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Publish to npm
-        run: npm publish --provenance --access public
+      - name: Verify, build and pack once
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$(node -p "require('./package.json').version")"
+          npm run verify_all
+          npm run build
+          # Registry-specific access belongs to publishing, not the shared tarball.
+          npm pkg delete publishConfig
+          mkdir -p "$RUNNER_TEMP/piiranha-release"
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/piiranha-release" \
+            --json > "$RUNNER_TEMP/piiranha-release/pack.json"
 
-      - name: Setup Node.js for GitHub Packages
-        uses: actions/setup-node@v4
+      - name: Retain the original tarball before publication
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-          registry-url: https://npm.pkg.github.com
-          scope: '@doist'
+          name: piiranha-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/piiranha-release/*
+          if-no-files-found: error
+          retention-days: 90
 
-      - name: Publish to GitHub Packages
-        run: npm publish --registry=https://npm.pkg.github.com
+      - name: Publish the same tarball to both registries
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { readFileSync, writeFileSync } = require('node:fs');
+          const { createHash } = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const semver = require('semver'); // Already installed by the locked build toolchain.
+          const directory = `${process.env.RUNNER_TEMP}/piiranha-release`;
+          const [{ name, version, filename, integrity }] = JSON.parse(readFileSync(`${directory}/pack.json`));
+          assert.equal(name, '@todoist/piiranha');
+          const hash = bytes => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+          assert.equal(hash(readFileSync(`${directory}/${filename}`)), integrity);
+          const prerelease = semver.prerelease(version);
+          assert.equal(Boolean(prerelease), process.env.PRERELEASE === 'true');
+          const tag = prerelease ? String(prerelease[0]) : 'latest';
+          assert.match(tag, /^[a-z][a-z0-9-]*$/);
+          const registries = [
+            { url: 'https://registry.npmjs.org', token: process.env.NPM_TOKEN, flags: ['--access=public', '--provenance'] },
+            { url: 'https://npm.pkg.github.com', token: process.env.GH_PACKAGES_TOKEN, flags: ['--provenance=false'] },
+          ];
+          async function read(url, token) {
+            const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            assert.ok(response.ok, `Cannot read ${url}: HTTP ${response.status}; bootstrap or repair access manually`);
+            return response;
+          }
+          async function preflight() {
+            const existing = new Set();
+            for (const registry of registries) {
+              assert.ok(registry.token, `Missing credentials for ${registry.url}`);
+              const metadata = await (await read(`${registry.url}/${encodeURIComponent(name)}`, registry.token)).json();
+              assert.ok(metadata.name === name || (registry.url === 'https://npm.pkg.github.com' && metadata.name === '@doist/piiranha'));
+              assert.ok(metadata.versions && metadata['dist-tags'], 'Readable package metadata is required');
+              if (registry.url === 'https://npm.pkg.github.com') {
+                const pkg = await (await read('https://api.github.com/orgs/todoist/packages/npm/piiranha', registry.token)).json();
+                assert.equal(pkg.visibility, 'internal');
+                assert.equal(pkg.repository.full_name, 'todoist/piiranha');
+              }
+              const copy = metadata.versions[version];
+              if (copy) {
+                assert.equal(copy.name, name);
+                assert.equal(copy.version, version);
+                assert.equal(copy.dist.integrity, integrity, 'Existing version has different bytes; retain the original artifact');
+                assert.equal(new URL(copy.dist.tarball).origin, registry.url);
+                const bytes = Buffer.from(await (await read(copy.dist.tarball, registry.token)).arrayBuffer());
+                assert.equal(hash(bytes), integrity);
+                existing.add(registry.url);
+              } else if (metadata['dist-tags'][tag]) {
+                assert.ok(semver.gte(version, metadata['dist-tags'][tag]), `Refusing to downgrade ${tag}`);
+              }
+            }
+            return existing;
+          }
+          (async () => {
+            for (const registry of registries) {
+              // Recheck BOTH mirrors immediately before EACH write; matching copies are no-ops.
+              if ((await preflight()).has(registry.url)) continue;
+              writeFileSync(`${directory}/.npmrc`, `registry=${registry.url}/\n@todoist:registry=${registry.url}/\n//${new URL(registry.url).host}/:_authToken=\${NODE_AUTH_TOKEN}\n`, { mode: 0o600 });
+              writeFileSync(`${directory}/global.npmrc`, '');
+              execFileSync('npm', ['publish', filename, '--ignore-scripts', `--tag=${tag}`, ...registry.flags], {
+                cwd: directory, stdio: 'inherit',
+                env: { ...process.env, NODE_AUTH_TOKEN: registry.token, NPM_CONFIG_USERCONFIG: `${directory}/.npmrc`, NPM_CONFIG_GLOBALCONFIG: `${directory}/global.npmrc` },
+              });
+            }
+            assert.equal((await preflight()).size, 2);
+          })().catch(error => { console.error(error.message); process.exit(1); });
+          NODE

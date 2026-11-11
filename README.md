@@ -1,10 +1,10 @@
 # piiranha
 
-[![NPM Package](https://badge.fury.io/js/%40doist%2Fpiiranha.png)](https://www.npmjs.com/package/@doist/piiranha)
+[![NPM Package](https://badge.fury.io/js/%40todoist%2Fpiiranha.png)](https://www.npmjs.com/package/@todoist/piiranha)
 
 Remove personally identifiable information from text.
 
-> This package is published on npm as [@doist/piiranha](https://www.npmjs.com/package/@doist/piiranha) and is maintained as a fork of the original [solvvy/redact-pii](https://github.com/solvvy/redact-pii) package.
+> This package is published on npm as [@todoist/piiranha](https://www.npmjs.com/package/@todoist/piiranha) and is maintained as a fork of the original [solvvy/redact-pii](https://github.com/solvvy/redact-pii) package.
 
 ### Prerequisites
 
@@ -15,11 +15,11 @@ The project is tested in CI on Node.js 18.x and 20.x.
 ### Simple example (synchronous API)
 
 ```
-npm install @doist/piiranha
+npm install @todoist/piiranha
 ```
 
 ```js
-import { SyncRedactor } from 'piiranha';
+import { SyncRedactor } from '@todoist/piiranha';
 const redactor = new SyncRedactor();
 const redactedText = redactor.redact('Hi David Johnson, Please give me a call at 555-555-5555');
 // Hi NAME, Please give me a call at PHONE_NUMBER
@@ -29,7 +29,7 @@ console.log(redactedText);
 CommonJS equivalent:
 
 ```js
-const { SyncRedactor } = require('piiranha');
+const { SyncRedactor } = require('@todoist/piiranha');
 const redactor = new SyncRedactor();
 const redactedText = redactor.redact('Hi David Johnson, Please give me a call at 555-555-5555');
 // Hi NAME, Please give me a call at PHONE_NUMBER
@@ -39,7 +39,7 @@ console.log(redactedText);
 ### Simple example (asynchronous / promise-based API)
 
 ```js
-import { AsyncRedactor } from 'piiranha';
+import { AsyncRedactor } from '@todoist/piiranha';
 const redactor = new AsyncRedactor();
 redactor.redactAsync('Hi David Johnson, Please give me a call at 555-555-5555').then((redactedText) => {
   // Hi NAME, Please give me a call at PHONE_NUMBER
@@ -72,7 +72,7 @@ redactor.redactAsync('Hi David Johnson, Please give me a call at 555-555-5555').
 ### Customize replacement values
 
 ```js
-import { SyncRedactor } from 'piiranha';
+import { SyncRedactor } from '@todoist/piiranha';
 
 // use a single replacement value for all built-in patterns found.
 const redactor = new SyncRedactor({ globalReplaceWith: 'TOP_SECRET' });
@@ -97,7 +97,7 @@ redactor.redact('Dear David Johnson');
 Note that the order of redaction rules matters, therefore you have to decide whether you want your custom redaction rules to run `before` or `after` the built-in ones. Generally it's better to put very specialized patterns or functions `before` the built-in ones and more broad / general ones `after`.
 
 ```js
-import { SyncRedactor } from 'piiranha';
+import { SyncRedactor } from '@todoist/piiranha';
 
 // add a custom regexp pattern
 const redactor = new SyncRedactor({
